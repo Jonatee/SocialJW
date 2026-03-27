@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { getLoginRedirectPath } from "@/lib/auth-redirect";
 import { Button } from "@/components/ui/button";
+import ConfirmDialog from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import useAuthStore from "@/stores/auth-store";
 
@@ -46,6 +47,8 @@ export default function PostMoreMenu({ post }) {
   const [reported, setReported] = useState(false);
   const [reasonCode, setReasonCode] = useState(REPORT_REASONS[0].value);
   const [description, setDescription] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -127,11 +130,7 @@ export default function PostMoreMenu({ post }) {
   const busy = deleteMutation.isPending || reportMutation.isPending || blockMutation.isPending;
 
   function handleDelete() {
-    if (!window.confirm("Delete this post?")) {
-      return;
-    }
-
-    deleteMutation.mutate();
+    setDeleteOpen(true);
   }
 
   function handleReport() {
@@ -148,13 +147,7 @@ export default function PostMoreMenu({ post }) {
       router.push(getLoginRedirectPath(pathname || `/posts/${post.id}`));
       return;
     }
-
-    const label = post.viewerState.blockedByViewer ? "unblock" : "block";
-    if (!window.confirm(`Do you want to ${label} @${post.author.username}?`)) {
-      return;
-    }
-
-    blockMutation.mutate();
+    setBlockOpen(true);
   }
 
   function submitReport() {
@@ -167,6 +160,42 @@ export default function PostMoreMenu({ post }) {
 
   return (
     <div ref={containerRef} className="relative z-30">
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete post?"
+        description="This will remove the post from the community feed."
+        confirmLabel="Delete"
+        destructive
+        loading={deleteMutation.isPending}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() =>
+          deleteMutation.mutate(undefined, {
+            onSuccess: () => {
+              setDeleteOpen(false);
+            }
+          })
+        }
+      />
+      <ConfirmDialog
+        open={blockOpen}
+        title={post.viewerState.blockedByViewer ? `Unblock @${post.author.username}?` : `Block @${post.author.username}?`}
+        description={
+          post.viewerState.blockedByViewer
+            ? "Their posts and responses will be visible to you again."
+            : "Their posts and responses will be hidden from your experience."
+        }
+        confirmLabel={post.viewerState.blockedByViewer ? "Unblock" : "Block"}
+        destructive={!post.viewerState.blockedByViewer}
+        loading={blockMutation.isPending}
+        onClose={() => setBlockOpen(false)}
+        onConfirm={() =>
+          blockMutation.mutate(undefined, {
+            onSuccess: () => {
+              setBlockOpen(false);
+            }
+          })
+        }
+      />
       {open ? (
         <div
           className="fixed inset-0 z-20 bg-[#1E3A5F]/14 backdrop-blur-[6px]"

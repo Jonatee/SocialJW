@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -9,7 +10,8 @@ import SquareAvatar from "@/components/branding/square-avatar";
 import VerifiedBadge from "@/components/branding/verified-badge";
 import api from "@/lib/api";
 import { getLoginRedirectPath } from "@/lib/auth-redirect";
-import { APP_NAME, formatMemberName, hasRoleBadge } from "@/lib/community";
+import { BRAND_NAME, LINKED_LOGO_URL } from "@/lib/brand";
+import { formatMemberName, hasRoleBadge } from "@/lib/community";
 import useAuthStore from "@/stores/auth-store";
 import useUiStore from "@/stores/ui-store";
 
@@ -115,7 +117,14 @@ export default function MobileSidebar() {
           >
             <Menu size={18} />
           </button>
-          <div className="editorial-title text-xl font-black text-ink">{APP_NAME}</div>
+          <Image
+            src={LINKED_LOGO_URL}
+            alt={BRAND_NAME}
+            width={132}
+            height={40}
+            className="h-10 w-auto rounded-xl object-contain"
+            unoptimized
+          />
           <button
             type="button"
             onClick={handleComposerOpen}

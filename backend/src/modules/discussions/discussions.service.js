@@ -115,6 +115,35 @@ async function lockDiscussion(id) {
   return DiscussionThread.findOneAndUpdate({ id, deletedAt: null }, { isLocked: true, modifiedAt: new Date() }, { new: true });
 }
 
+async function deleteDiscussion(actor, id) {
+  const thread = await DiscussionThread.findOne({ id, deletedAt: null });
+  if (!thread) {
+    throw new AppError("Discussion not found", 404);
+  }
+
+  const canDelete = actor?.role === "admin" || actor?.role === "moderator" || thread.authorId === actor?.id;
+  if (!canDelete) {
+    throw new AppError("You are not allowed to remove this discussion", 403);
+  }
+
+  const deletedAt = new Date();
+  await DiscussionThread.updateOne(
+    { id, deletedAt: null },
+    {
+      deletedAt,
+      archivedAt: deletedAt,
+      modifiedAt: deletedAt
+    }
+  );
+
+  await Comment.updateMany(
+    { targetType: "discussion", targetId: id, deletedAt: null },
+    { deletedAt, modifiedAt: deletedAt, status: "removed" }
+  );
+
+  return { success: true };
+}
+
 async function updateDiscussionState(id, payload) {
   return DiscussionThread.findOneAndUpdate({ id, deletedAt: null }, { ...payload, modifiedAt: new Date() }, { new: true });
 }
@@ -125,5 +154,6 @@ module.exports = {
   getDiscussion,
   createDiscussionComment,
   lockDiscussion,
+  deleteDiscussion,
   updateDiscussionState
 };

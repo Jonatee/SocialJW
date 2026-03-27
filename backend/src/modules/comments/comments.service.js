@@ -2,6 +2,7 @@ const AppError = require("../../utils/app-error");
 const { extractMentions } = require("../../utils/helpers");
 const Comment = require("./comment.model");
 const Post = require("../posts/post.model");
+const DiscussionThread = require("../discussions/discussion-thread.model");
 const Reaction = require("../reactions/reaction.model");
 const Notification = require("../notifications/notification.model");
 const User = require("../users/user.model");
@@ -280,11 +281,32 @@ async function updateComment(userId, commentId, payload) {
 }
 
 async function deleteComment(userId, commentId) {
-  await Comment.findOneAndUpdate(
-    { id: commentId, authorId: userId, deletedAt: null },
-    { deletedAt: new Date(), status: "removed", modifiedAt: new Date() },
-    { new: true }
-  );
+  const comment = await Comment.findOne({ id: commentId, authorId: userId, deletedAt: null });
+  if (!comment) {
+    throw new AppError("Comment not found", 404);
+  }
+
+  const deletedAt = new Date();
+  comment.deletedAt = deletedAt;
+  comment.status = "removed";
+  comment.modifiedAt = deletedAt;
+  await comment.save();
+
+  if (comment.targetType === "discussion") {
+    await DiscussionThread.updateOne(
+      { id: comment.targetId, deletedAt: null },
+      { $inc: { commentCount: -1 }, modifiedAt: deletedAt }
+    );
+  } else {
+    await Post.updateOne({ id: comment.postId, deletedAt: null }, { $inc: { "stats.commentCount": -1 }, modifiedAt: deletedAt });
+  }
+
+  if (comment.parentCommentId) {
+    await Comment.updateOne(
+      { id: comment.parentCommentId, deletedAt: null },
+      { $inc: { "stats.replyCount": -1 }, modifiedAt: deletedAt }
+    );
+  }
 
   return { success: true };
 }

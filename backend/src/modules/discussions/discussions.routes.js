@@ -12,6 +12,7 @@ router.get("/", optionalAuth, controller.list);
 router.post("/", requireAuth, writeRateLimiter, validate(createDiscussionSchema), controller.create);
 router.get("/:id", optionalAuth, controller.getOne);
 router.post("/:id/comments", requireAuth, writeRateLimiter, validate(createCommentSchema), controller.comment);
+router.delete("/:id", requireAuth, interactionRateLimiter, controller.remove);
 router.patch("/:id/lock", requireAuth, requireRole("moderator", "admin"), interactionRateLimiter, controller.lock);
 router.patch(
   "/:id",

@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Heart } from "lucide-react";
+import { Heart, Trash2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import SquareAvatar from "@/components/branding/square-avatar";
 import api from "@/lib/api";
 import { getLoginRedirectPath } from "@/lib/auth-redirect";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import ConfirmDialog from "@/components/ui/confirm-dialog";
 import useAuthStore from "@/stores/auth-store";
 
 function ReplyComposer({ commentId, postId, onClose }) {
@@ -72,10 +73,12 @@ function CommentNode({ comment, childrenMap, depth = 0 }) {
   const pathname = usePathname();
   const currentUser = useAuthStore((state) => state.currentUser);
   const [replyOpen, setReplyOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const children = childrenMap.get(comment.id) || [];
   const [liked, setLiked] = useState(Boolean(comment.viewerState?.liked));
   const [likeCount, setLikeCount] = useState(comment.stats?.likeCount || 0);
   const queryClient = useQueryClient();
+  const canDelete = currentUser?.id && currentUser.id === comment.author.id;
   const likeMutation = useMutation({
     mutationFn: async (nextLiked) => {
       if (nextLiked) {
@@ -83,6 +86,14 @@ function CommentNode({ comment, childrenMap, depth = 0 }) {
       } else {
         await api.delete(`/comments/${comment.id}/react`);
       }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["post", comment.postId] });
+    }
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/comments/${comment.id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["post", comment.postId] });
@@ -111,8 +122,32 @@ function CommentNode({ comment, childrenMap, depth = 0 }) {
     });
   }
 
+  function handleDelete() {
+    if (!canDelete || deleteMutation.isPending) {
+      return;
+    }
+    setDeleteOpen(true);
+  }
+
   return (
     <div className={depth > 0 ? "ml-6 border-l border-border pl-4" : ""}>
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete comment?"
+        description="This will remove your comment from the conversation."
+        confirmLabel="Delete"
+        destructive
+        loading={deleteMutation.isPending}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() =>
+          deleteMutation.mutate(undefined, {
+            onSuccess: () => {
+              setDeleteOpen(false);
+              queryClient.invalidateQueries({ queryKey: ["post", comment.postId] });
+            }
+          })
+        }
+      />
       <div className="panel p-4">
         <div className="flex gap-3">
           <Link href={comment.author.username ? `/profile/${comment.author.username}` : "#"}>
@@ -160,6 +195,16 @@ function CommentNode({ comment, childrenMap, depth = 0 }) {
                 <span>Like</span>
                 <span>{likeCount}</span>
               </button>
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="inline-flex items-center gap-2 text-xs text-muted transition hover:text-[#B91C1C]"
+                >
+                  <Trash2 size={14} />
+                  <span>{deleteMutation.isPending ? "Deleting..." : "Delete"}</span>
+                </button>
+              ) : null}
             </div>
             {replyOpen ? (
               <ReplyComposer

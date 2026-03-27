@@ -44,6 +44,7 @@ export default function PostDetailData({ postId }) {
           parentCommentId: comment.parentCommentId || null,
           rootCommentId: comment.rootCommentId || null,
           author: {
+            id: comment.author?.id || "",
             name: formatMemberName(comment.author, comment.author?.profile),
             username: comment.author?.username || "",
             avatarUrl: comment.author?.profile?.avatarMedia?.secureUrl || "",

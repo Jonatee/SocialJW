@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -36,6 +37,16 @@ export default function RightSidebar() {
       return response.data.data || [];
     }
   });
+  const suggestedUsers = useMemo(() => {
+    const items = [...(usersQuery.data || [])];
+
+    for (let index = items.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+    }
+
+    return items.slice(0, 4);
+  }, [usersQuery.data]);
 
   return (
     <aside className="space-y-6">
@@ -68,7 +79,7 @@ export default function RightSidebar() {
         <section className="panel p-5">
           <div className="editorial-title mb-4 text-xs font-bold text-muted">Connected Brothers and Sisters</div>
           <div className="space-y-4">
-            {(usersQuery.data || []).slice(0, 4).map((user) => {
+            {suggestedUsers.map((user) => {
               const displayName = formatMemberName(user, user.profile);
               return (
                 <Link

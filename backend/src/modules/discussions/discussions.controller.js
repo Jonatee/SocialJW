@@ -22,6 +22,11 @@ const comment = asyncHandler(async (req, res) => {
   sendSuccess(res, { statusCode: 201, data: item, message: "Response added" });
 });
 
+const remove = asyncHandler(async (req, res) => {
+  const item = await service.deleteDiscussion(req.user, req.params.id);
+  sendSuccess(res, { data: item, message: "Discussion removed" });
+});
+
 const lock = asyncHandler(async (req, res) => {
   const item = await service.lockDiscussion(req.params.id);
   sendSuccess(res, { data: item, message: "Discussion locked" });
@@ -37,6 +42,7 @@ module.exports = {
   create,
   getOne,
   comment,
+  remove,
   lock,
   updateState
 };
