@@ -1,0 +1,19 @@
+import AppShell from "@/components/layout/app-shell";
+import RequireRole from "@/components/auth/require-role";
+import { ModeratorDashboardData } from "@/components/data/admin-data";
+import BackButton from "@/components/navigation/back-button";
+
+export default function ModeratorPage() {
+  return (
+    <AppShell rightSidebar={false}>
+      <RequireRole roles={["moderator", "admin"]} fallbackPath="/home">
+        <BackButton />
+        <section className="panel p-6">
+          <div className="text-3xl font-black tracking-tight text-ink">Moderator Tools</div>
+          <p className="mt-2 text-sm text-muted">Review reports, manage discussions, and keep the community calm and respectful.</p>
+        </section>
+        <ModeratorDashboardData />
+      </RequireRole>
+    </AppShell>
+  );
+}

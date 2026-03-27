@@ -1,0 +1,137 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --font-main: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-surface text-ink;
+  font-family: var(--font-main);
+  background-image:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(30, 58, 95, 0.08), transparent 28%),
+    linear-gradient(180deg, #fbfcfe 0%, #f1f5f9 100%);
+}
+
+.panel {
+  @apply rounded-[20px] border border-border bg-panel shadow-card;
+}
+
+.editorial-title {
+  letter-spacing: -0.03em;
+}
+
+.subtle-grid {
+  background-image:
+    linear-gradient(rgba(30, 58, 95, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 58, 95, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(217, 226, 236, 0.9) 0%, rgba(232, 238, 245, 1) 50%, rgba(217, 226, 236, 0.9) 100%);
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: skeletonSweep 1.4s ease-in-out infinite;
+}
+
+.notification-pulse {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+.overlay-fade {
+  animation: fadeIn 180ms ease-out;
+}
+
+.panel-reveal {
+  animation: revealIn 180ms ease-out;
+}
+
+.motion-rise {
+  animation: riseIn 220ms ease-out;
+}
+
+.hover-lift {
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-1px);
+}
+
+.action-pop {
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.action-pop:hover {
+  transform: translateY(-1px);
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    opacity: 0.86;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes revealIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes skeletonSweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}

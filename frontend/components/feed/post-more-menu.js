@@ -1,0 +1,266 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Ban, Flag, MoreHorizontal, Trash2 } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import api from "@/lib/api";
+import { getLoginRedirectPath } from "@/lib/auth-redirect";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import useAuthStore from "@/stores/auth-store";
+
+const REPORT_REASONS = [
+  { value: "spam", label: "Spam or scam" },
+  { value: "harassment", label: "Harassment" },
+  { value: "hate_speech", label: "Hate speech" },
+  { value: "violence", label: "Violence" },
+  { value: "nudity", label: "Nudity" },
+  { value: "misinformation", label: "Misinformation" },
+  { value: "other", label: "Other" }
+];
+
+function MenuItem({ icon: Icon, label, destructive = false, onClick, disabled = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition ${
+        destructive ? "text-accentDark hover:bg-accent/10" : "text-ink hover:bg-[#EEF4FA]"
+      } disabled:cursor-not-allowed disabled:opacity-50`}
+    >
+      <Icon size={15} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+export default function PostMoreMenu({ post }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const queryClient = useQueryClient();
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const [open, setOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reported, setReported] = useState(false);
+  const [reasonCode, setReasonCode] = useState(REPORT_REASONS[0].value);
+  const [description, setDescription] = useState("");
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!containerRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ["feed"] });
+    queryClient.invalidateQueries({ queryKey: ["explore"] });
+    queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    queryClient.invalidateQueries({ queryKey: ["post", post.id] });
+    queryClient.invalidateQueries({ queryKey: ["profile"] });
+    queryClient.invalidateQueries({ queryKey: ["search"] });
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/posts/${post.id}`);
+    },
+    onSuccess: () => {
+      invalidateAll();
+      setOpen(false);
+    }
+  });
+
+  const reportMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post("/reports", {
+        targetType: "post",
+        targetId: post.id,
+        reasonCode,
+        description: description.trim()
+      });
+
+      return response.data.data;
+    },
+    onSuccess: (data) => {
+      setReported(true);
+      setReportOpen(false);
+      setOpen(false);
+      if (!data?.alreadyReported) {
+        setDescription("");
+      }
+    }
+  });
+
+  const blockMutation = useMutation({
+    mutationFn: async () => {
+      if (post.viewerState.blockedByViewer) {
+        await api.delete(`/users/${post.author.id}/block`);
+      } else {
+        await api.post(`/users/${post.author.id}/block`);
+      }
+    },
+    onSuccess: () => {
+      invalidateAll();
+      setOpen(false);
+    }
+  });
+
+  const busy = deleteMutation.isPending || reportMutation.isPending || blockMutation.isPending;
+
+  function handleDelete() {
+    if (!window.confirm("Delete this post?")) {
+      return;
+    }
+
+    deleteMutation.mutate();
+  }
+
+  function handleReport() {
+    if (!currentUser) {
+      router.push(getLoginRedirectPath(pathname || `/posts/${post.id}`));
+      return;
+    }
+
+    setReportOpen(true);
+  }
+
+  function handleBlock() {
+    if (!currentUser) {
+      router.push(getLoginRedirectPath(pathname || `/posts/${post.id}`));
+      return;
+    }
+
+    const label = post.viewerState.blockedByViewer ? "unblock" : "block";
+    if (!window.confirm(`Do you want to ${label} @${post.author.username}?`)) {
+      return;
+    }
+
+    blockMutation.mutate();
+  }
+
+  function submitReport() {
+    if (reported || reportMutation.isPending) {
+      return;
+    }
+
+    reportMutation.mutate();
+  }
+
+  return (
+    <div ref={containerRef} className="relative z-30">
+      {open ? (
+        <div
+          className="fixed inset-0 z-20 bg-[#1E3A5F]/14 backdrop-blur-[6px]"
+          aria-hidden="true"
+          onClick={() => {
+            setOpen(false);
+            setReportOpen(false);
+          }}
+        />
+      ) : null}
+
+      <Button
+        type="button"
+        variant="ghost"
+        className="relative z-30 h-9 w-9 rounded-full px-0"
+        onClick={() => setOpen((value) => !value)}
+        aria-label="Open post actions"
+      >
+        <MoreHorizontal size={18} />
+      </Button>
+
+      {open ? (
+        <div className="absolute right-0 top-11 z-30 min-w-[220px] overflow-hidden rounded-[18px] border border-border bg-panel shadow-[0_20px_50px_rgba(30,58,95,0.16)]">
+          {post.viewerState.isOwner ? (
+            <MenuItem
+              icon={Trash2}
+              label={deleteMutation.isPending ? "Deleting..." : "Delete post"}
+              destructive
+              disabled={busy}
+              onClick={handleDelete}
+            />
+          ) : (
+            <>
+              <MenuItem
+                icon={Flag}
+                label={reported ? "Already reported" : reportMutation.isPending ? "Reporting..." : "Report post"}
+                disabled={busy || reported}
+                onClick={handleReport}
+              />
+              <MenuItem
+                icon={Ban}
+                label={
+                  blockMutation.isPending
+                    ? post.viewerState.blockedByViewer
+                      ? "Unblocking..."
+                      : "Blocking..."
+                    : post.viewerState.blockedByViewer
+                      ? `Unblock @${post.author.username}`
+                      : `Block @${post.author.username}`
+                }
+                destructive={!post.viewerState.blockedByViewer}
+                disabled={busy || !post.author.id}
+                onClick={handleBlock}
+              />
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {open && reportOpen ? (
+        <div className="absolute right-0 top-11 z-40 w-[320px] rounded-[18px] border border-border bg-panel p-4 shadow-[0_20px_50px_rgba(30,58,95,0.16)]">
+          <div className="editorial-title text-sm font-bold text-ink">Report post</div>
+          <p className="mt-2 text-xs text-muted">Choose a reason for reporting this post.</p>
+          <div className="mt-4 grid gap-2">
+            {REPORT_REASONS.map((reason) => (
+              <button
+                key={reason.value}
+                type="button"
+                onClick={() => setReasonCode(reason.value)}
+                className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                  reasonCode === reason.value
+                    ? "border-accent bg-accent/10 text-accentDark"
+                    : "border-border bg-[#F8FAFC] text-ink hover:bg-[#EEF4FA]"
+                }`}
+              >
+                {reason.label}
+              </button>
+            ))}
+            <Input
+              placeholder="Optional details"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setReportOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" loading={reportMutation.isPending} disabled={reported} onClick={submitReport}>
+                {reported ? "Already reported" : "Submit report"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
